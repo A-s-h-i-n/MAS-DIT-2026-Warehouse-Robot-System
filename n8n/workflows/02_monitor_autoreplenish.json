@@ -1,0 +1,92 @@
+{
+  "name": "WMS - Robot Monitor & Auto-Replenish",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "seconds", "secondsInterval": 30 }] }
+      },
+      "id": "node-schedule",
+      "name": "Every 30s",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [220, 320]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://backend:8000/inventory",
+        "options": {}
+      },
+      "id": "node-get-inventory",
+      "name": "Get Inventory",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 320]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "inventory",
+        "options": {}
+      },
+      "id": "node-split",
+      "name": "Split Items",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [660, 320]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "cond-low",
+              "leftValue": "={{ $json.stock }}",
+              "rightValue": 10,
+              "operator": { "type": "number", "operation": "lt" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-if-low",
+      "name": "Stock < 10?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [880, 320]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://backend:8000/inventory/update",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ item: $json.item, delta: 20 }) }}",
+        "options": {}
+      },
+      "id": "node-replenish",
+      "name": "Auto-Replenish (+20)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 240]
+    }
+  ],
+  "connections": {
+    "Every 30s": {
+      "main": [[{ "node": "Get Inventory", "type": "main", "index": 0 }]]
+    },
+    "Get Inventory": {
+      "main": [[{ "node": "Split Items", "type": "main", "index": 0 }]]
+    },
+    "Split Items": {
+      "main": [[{ "node": "Stock < 10?", "type": "main", "index": 0 }]]
+    },
+    "Stock < 10?": {
+      "main": [[{ "node": "Auto-Replenish (+20)", "type": "main", "index": 0 }], []]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}

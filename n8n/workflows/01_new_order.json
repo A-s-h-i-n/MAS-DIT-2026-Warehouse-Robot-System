@@ -1,0 +1,87 @@
+{
+  "name": "WMS - New Order Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "new-order",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "node-webhook",
+      "name": "Order Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [220, 320],
+      "webhookId": "wms-new-order"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://backend:8000/orders",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ item: $json.body.item, quantity: $json.body.quantity || 1, priority: $json.body.priority || 'normal' }) }}",
+        "options": {}
+      },
+      "id": "node-create-order",
+      "name": "Create Order (Order Agent)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 320]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://backend:8000/inventory",
+        "options": {}
+      },
+      "id": "node-check-inventory",
+      "name": "Check Inventory",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 320]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://backend:8000/robots",
+        "options": {}
+      },
+      "id": "node-get-robots",
+      "name": "Observe Robots (Scheduler)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [880, 320]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'order received', order: $('Create Order (Order Agent)').item.json }) }}",
+        "options": {}
+      },
+      "id": "node-respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1100, 320]
+    }
+  ],
+  "connections": {
+    "Order Webhook": {
+      "main": [[{ "node": "Create Order (Order Agent)", "type": "main", "index": 0 }]]
+    },
+    "Create Order (Order Agent)": {
+      "main": [[{ "node": "Check Inventory", "type": "main", "index": 0 }]]
+    },
+    "Check Inventory": {
+      "main": [[{ "node": "Observe Robots (Scheduler)", "type": "main", "index": 0 }]]
+    },
+    "Observe Robots (Scheduler)": {
+      "main": [[{ "node": "Respond", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}

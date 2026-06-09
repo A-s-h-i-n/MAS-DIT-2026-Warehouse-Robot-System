@@ -1,0 +1,61 @@
+# Multi-Agent Warehouse Robot Coordination System
+# Brings up the backend (FastAPI + simulation), the dashboard (React/nginx),
+# and an n8n instance for event-driven workflow orchestration.
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: wms-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - WMS_TICK_SECONDS=1.0
+      - WMS_NUM_ROBOTS=3
+      # AI scheduling via LM Studio running on the host machine.
+      # Toggle on at runtime from the dashboard or POST /ai/toggle.
+      - WMS_AI_SCHEDULING=false
+      - WMS_LMSTUDIO_URL=http://host.docker.internal:1234/v1
+      - WMS_LMSTUDIO_MODEL=local-model
+    extra_hosts:
+      # Lets the container reach LM Studio on the host (Linux + Mac/Windows).
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - wms_data:/app/data
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: "http://localhost:8000"
+    container_name: wms-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: wms-n8n
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_SECURE_COOKIE=false
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - GENERIC_TIMEZONE=UTC
+      # Inside the compose network, reach the backend at http://backend:8000
+      - WMS_BACKEND_URL=http://backend:8000
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./n8n/workflows:/workflows
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  wms_data:
+  n8n_data:

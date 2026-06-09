@@ -1,0 +1,23 @@
+# Standalone n8n instance (use this if you only want to run n8n separately).
+# The full stack is in the repository-root docker-compose.yml.
+
+services:
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: wms-n8n
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_SECURE_COOKIE=false
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - GENERIC_TIMEZONE=UTC
+      # When n8n runs on the host (not in the app's compose network), point this
+      # at the backend's host port instead, e.g. http://host.docker.internal:8000
+      - WMS_BACKEND_URL=http://host.docker.internal:8000
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./workflows:/workflows
+
+volumes:
+  n8n_data:
